@@ -1,0 +1,57 @@
+const { chromium } = require("playwright");
+
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
+const PA_USERNAME = requireEnv("PA_USERNAME");
+const PA_PASSWORD = requireEnv("PA_PASSWORD");
+
+(async () => {
+  const browser = await chromium.launch({
+    headless: true,
+  });
+
+  const page = await browser.newPage();
+
+  try {
+    // Login
+    await page.goto("https://www.pythonanywhere.com/login/", {
+      waitUntil: "networkidle",
+    });
+
+    await page.fill('input[name="auth-username"]', PA_USERNAME);
+    await page.fill('input[name="auth-password"]', PA_PASSWORD);
+
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "networkidle" }),
+      page.click('button[type="submit"]'),
+    ]);
+
+    console.log("✅ Logged in");
+
+    // Open web app page
+    await page.goto(`https://www.pythonanywhere.com/user/${PA_USERNAME}/webapps/`, {
+      waitUntil: "networkidle",
+    });
+
+    // Click the renewal button
+    await page.locator('input[value="Run until 1 month from today"]').click();
+
+    console.log("✅ Website renewed successfully");
+  } catch (err) {
+    console.error(err);
+
+    // Save screenshot for debugging
+    await page.screenshot({
+      path: "renew-error.png",
+      fullPage: true,
+    });
+
+    process.exit(1);
+  } finally {
+    await browser.close();
+  }
+})();

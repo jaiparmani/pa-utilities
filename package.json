@@ -1,0 +1,13 @@
+{
+  "name": "pa-utilities",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PythonAnywhere deploy and account-renewal automation",
+  "scripts": {
+    "deploy": "node deploy.js",
+    "renew": "node renew.js"
+  },
+  "dependencies": {
+    "playwright": "1.62.1"
+  }
+}
