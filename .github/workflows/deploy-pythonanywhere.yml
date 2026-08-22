@@ -11,6 +11,19 @@ on:
         description: "The PA webapp domain to reload (e.g. username.pythonanywhere.com)"
         required: true
         type: string
+      pa_migrate_dir:
+        description: >-
+          Absolute path to the directory containing manage.py. When set, Django
+          migrations are applied after the pull and before the reload. Leave
+          unset to skip - callers that aren't Django are unaffected.
+        required: false
+        default: ""
+        type: string
+      pa_python:
+        description: "Python used to run manage.py on the PA server"
+        required: false
+        default: "python3.12"
+        type: string
     secrets:
       PA_USERNAME:
         required: true
@@ -54,6 +67,8 @@ jobs:
           PA_API_TOKEN: ${{ secrets.PA_API_TOKEN }}
           PA_WORKING_DIR: ${{ inputs.pa_working_dir }}
           PA_DOMAIN: ${{ inputs.pa_domain }}
+          PA_MIGRATE_DIR: ${{ inputs.pa_migrate_dir }}
+          PA_PYTHON: ${{ inputs.pa_python }}
 
       - name: Upload failure screenshots
         if: failure()

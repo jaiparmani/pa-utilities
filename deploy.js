@@ -4,6 +4,8 @@ const PA_USERNAME = requireEnv("PA_USERNAME");
 const PA_PASSWORD = requireEnv("PA_PASSWORD");
 const PA_API_TOKEN = requireEnv("PA_API_TOKEN");
 const PA_WORKING_DIR = requireEnv("PA_WORKING_DIR");
+const PA_MIGRATE_DIR = process.env.PA_MIGRATE_DIR || "";
+const PA_PYTHON = process.env.PA_PYTHON || "python3.12";
 const PA_DOMAIN = requireEnv("PA_DOMAIN");
 
 function requireEnv(name) {
@@ -165,6 +167,38 @@ async function gitPull() {
     }
 
     console.log("git pull output:\n" + output);
+
+    // Pulling code that adds a Django app leaves the server without that app's
+    // tables until someone runs migrate by hand - the failure looks like
+    // "no such table", long after the deploy reported success. Apply them here,
+    // in the same console, while the new code is on disk and before the reload.
+    if (PA_MIGRATE_DIR) {
+      console.log(`Applying migrations in ${PA_MIGRATE_DIR}...`);
+      await paApi(`consoles/${consoleId}/send_input/`, {
+        method: "POST",
+        body: JSON.stringify({
+          input: `cd ${PA_MIGRATE_DIR} && ${PA_PYTHON} manage.py migrate --noinput\n`,
+        }),
+      });
+
+      let migrateOut = "";
+      for (let i = 0; i < 8; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const chunk = await paApi(`consoles/${consoleId}/get_latest_output/`);
+        migrateOut += chunk.output;
+      }
+      console.log("migrate output:\n" + migrateOut);
+
+      // The console reports command output as text, not an exit code, so look
+      // for the shapes a failure takes rather than trusting the call returned.
+      if (/Traceback|CommandError|No such file or directory|command not found/i.test(migrateOut)) {
+        throw new Error(
+          "Migrations did not apply cleanly - see the migrate output above. " +
+          "Check pa_migrate_dir points at the directory holding manage.py, and " +
+          "that pa_python is an interpreter with Django installed."
+        );
+      }
+    }
   } finally {
     await paApi(`consoles/${consoleId}/`, { method: "DELETE" });
   }
